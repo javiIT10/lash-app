@@ -30,7 +30,7 @@ export default function ServiceCard({
           <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent z-10" />
 
           <Motion.img
-            src={image}
+            src={`../../../public${image}`}
             alt={name}
             className="object-cover w-full h-full relative z-0"
             whileHover={{ scale: 1.1 }}
