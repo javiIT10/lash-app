@@ -5,6 +5,13 @@ import { Sparkles } from 'lucide-react';
 import ServicesData from '../../data/ServicesData';
 import StepHeader from '../../components/booking/StepHeader';
 import ServiceCard from '../../components/booking/ServiceCard';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/Select';
 
 function ServicesContent() {
   const navigate = useNavigate();
@@ -51,7 +58,7 @@ function ServicesContent() {
         </div>
 
         {/* Sticky filter bar */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12 sticky top-4 z-30 bg-white dark:bg-slate-900 p-5 rounded-[2rem] backdrop-blur-sm border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-12 sticky top-4 z-30 bg-white dark:bg-slate-900 p-5 rounded-4xl backdrop-blur-sm border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
           {/* Category pills */}
           <div className="flex items-center gap-2.5 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-x-auto max-w-full w-full md:w-auto">
             {['Todos', 'Pestañas', 'Uñas'].map((cat) => (
@@ -75,17 +82,20 @@ function ServicesContent() {
               Ordenar por:
             </span>
 
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              className="w-full md:w-[240px] rounded-full h-11 px-4 font-medium bg-background border border-border focus:outline-none focus:ring-2 focus:ring-ring/50"
-            >
-              <option value="featured">Recomendados</option>
-              <option value="price-asc">Precio: Menor a Mayor</option>
-              <option value="price-desc">Precio: Mayor a Menor</option>
-              <option value="name-asc">Nombre: A-Z</option>
-              <option value="name-desc">Nombre: Z-A</option>
-            </select>
+            <Select value={sort} onValueChange={setSort}>
+              <SelectTrigger className="w-full md:w-[200px] rounded-full h-11 font-medium">
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="featured">Recomendados</SelectItem>
+                <SelectItem value="price-asc">Precio: Menor a Mayor</SelectItem>
+                <SelectItem value="price-desc">
+                  Precio: Mayor a Menor
+                </SelectItem>
+                <SelectItem value="name-asc">Nombre: A-Z</SelectItem>
+                <SelectItem value="name-desc">Nombre: Z-A</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
