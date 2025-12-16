@@ -1,62 +1,40 @@
-import { useMemo, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
-import { Clock, ArrowRight, Lock } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import StepHeader from '../../components/booking/StepHeader';
-import servicesData from '../../data/servicesData';
-
-// Si YA tienes estos componentes UI, déjalos así:
 import { Input } from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
 import { Textarea } from '../../components/ui/Textarea';
+import { Clock, ArrowRight, Lock } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import StepHeader from '../../components/booking/StepHeader';
+import { useBooking } from '../../contexts/BookingContext';
+import { useNavigate } from 'react-router-dom';
 
-function formatDateShort(isoDate) {
-  // isoDate: YYYY-MM-DD
-  if (!isoDate) return '';
-  const [y, m, d] = isoDate.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  const day = dt.toLocaleDateString('es-MX', { weekday: 'short' });
-  return `${day.charAt(0).toUpperCase() + day.slice(1)} ${String(d).padStart(
-    2,
-    '0'
-  )}`;
+// Helper: muestra "Lun 24" desde "YYYY-MM-DD"
+function formatShortDate(dateStr) {
+  if (!dateStr) return '';
+  const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+  const d = new Date(`${dateStr}T00:00:00`);
+  return `${days[d.getDay()]} ${d.getDate()}`;
 }
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const { booking, actions } = useBooking();
 
-  const serviceId = Number(searchParams.get('serviceId'));
-  const date = searchParams.get('date'); // YYYY-MM-DD
-  const time = searchParams.get('time'); // HH:MM
-  const mode = searchParams.get('mode') || 'deposit'; // deposit | full
+  // Protección: si falta algo del flujo, regresamos a servicios
+  useEffect(() => {
+    if (!booking.service || !booking.date || !booking.time) {
+      navigate('/book/services', { replace: true });
+    }
+  }, [booking.service, booking.date, booking.time, navigate]);
 
-  const service = useMemo(
-    () => servicesData.find((s) => s.id === serviceId),
-    [serviceId]
-  );
-
-  // Si faltan params, regresa al paso anterior
-  if (!serviceId || !service || !date || !time) {
-    return <Navigate to="/book/services" replace />;
-  }
-
-  const bookingSummary = useMemo(() => {
-    return {
-      service,
-      dateDisplay: formatDateShort(date),
-      time,
-      mode,
-    };
-  }, [service, date, time, mode]);
-
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    notes: '',
-  });
+  // Precarga si ya existía customer (por si vuelves atrás)
+  const [formData, setFormData] = useState(() => ({
+    name: booking.customer?.name ?? '',
+    email: booking.customer?.email ?? '',
+    phone: booking.customer?.phone ?? '',
+    notes: booking.customer?.notes ?? '',
+  }));
 
   const isFormValid =
     formData.name.trim().length > 0 && formData.email.trim().length > 0;
@@ -66,36 +44,46 @@ export default function CheckoutPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const payToday =
-    bookingSummary.mode === 'full'
-      ? bookingSummary.service.price
-      : bookingSummary.service.deposit;
+  // Derivados para UI (resumen)
+  const summary = useMemo(() => {
+    const service = booking.service;
+    if (!service) return null;
 
-  const remaining =
-    bookingSummary.mode === 'full'
-      ? 0
-      : bookingSummary.service.price - bookingSummary.service.deposit;
+    const total = service.price ?? 0;
+    const deposit = service.deposit ?? 0;
+    const remaining = Math.max(0, total - deposit);
+
+    return {
+      service,
+      dateDisplay: formatShortDate(booking.date),
+      time: booking.time,
+      total,
+      deposit,
+      remaining,
+    };
+  }, [booking.service, booking.date, booking.time]);
 
   const handleConfirm = () => {
-    if (!isFormValid) return;
+    if (!isFormValid || !summary) return;
 
-    // Más adelante al backend o a MercadoPago.
-    navigate(
-      `/book/success?serviceId=${serviceId}&date=${date}&time=${encodeURIComponent(
-        time
-      )}&mode=${mode}`
-    );
+    // Guardar datos del cliente en el contexto
+    actions.setCustomer({
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      notes: formData.notes.trim(),
+    });
+
+    navigate('/book/success');
   };
 
-  // Para volver a DateTime conservando el servicio
-  const backToDateTime = `/book/date-time?serviceId=${serviceId}${
-    mode ? `&mode=${mode}` : ''
-  }`;
+  // Mientras redirige (o si falta summary), evita render roto
+  if (!summary) return null;
 
   return (
-    <div className="min-h-dvh flex flex-col bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-[100dvh] flex flex-col bg-slate-50 dark:bg-slate-950">
       <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto max-w-xl px-4 py-8 pb-32 space-y-8">
+        <div className="container mx-auto max-w-lg px-4 py-8 pb-32 space-y-8">
           <StepHeader
             stepNumber={3}
             totalSteps={3}
@@ -103,18 +91,18 @@ export default function CheckoutPage() {
             title="Completa tus datos"
             subtitle="Revisa los detalles y completa tu información para confirmar."
             backLink={{
-              href: backToDateTime,
+              href: '/book/date-time',
               label: 'Volver a horarios',
             }}
           />
 
           {/* Summary Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-4xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
             <div className="p-6 pb-4 flex gap-5">
               <div className="h-24 w-24 rounded-2xl shrink-0 overflow-hidden bg-slate-100">
                 <img
-                  src={bookingSummary.service.image || '/placeholder.svg'}
-                  alt={bookingSummary.service.name}
+                  src={summary.service.image || '/placeholder.svg'}
+                  alt={summary.service.name}
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -125,39 +113,40 @@ export default function CheckoutPage() {
                     variant="secondary"
                     className="bg-pink-50 text-pink-700 rounded-lg px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
                   >
-                    {bookingSummary.service.category}
+                    {summary.service.category}
                   </Badge>
-                  <span className="font-bold text-lg text-slate-900 dark:text-slate-50">
-                    ${bookingSummary.service.price}
+
+                  <span className="font-bold text-lg text-slate-900">
+                    ${summary.total}
                   </span>
                 </div>
 
-                <h3 className="font-bold text-lg text-slate-900 dark:text-slate-50 leading-tight mb-2">
-                  {bookingSummary.service.name}
+                <h3 className="font-bold text-lg text-slate-900 leading-tight mb-2">
+                  {summary.service.name}
                 </h3>
 
-                <div className="flex items-center gap-1 text-sm font-medium text-slate-500 bg-slate-50 dark:bg-slate-800/60 inline-flex px-3 py-1 rounded-full">
+                <div className="flex items-center gap-1 text-sm font-medium text-slate-500 bg-slate-50 inline-block px-3 py-1 rounded-full">
                   <Clock className="h-3.5 w-3.5" />
-                  {bookingSummary.service.duration}
+                  {summary.service.duration}
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-50/50 dark:bg-slate-800/30 p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="bg-slate-50/50 p-4 border-t border-slate-100 flex items-center justify-between">
               <span className="text-sm font-medium text-slate-500">
                 Fecha seleccionada
               </span>
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                {bookingSummary.dateDisplay} · {bookingSummary.time}
+              <span className="text-sm font-bold text-slate-900">
+                {summary.dateDisplay} · {summary.time}
               </span>
             </div>
           </div>
 
-          {/* Form */}
+          {/* Customer Details Form */}
           <div className="space-y-6">
-            <div className="flex items-center gap-3 pb-2 border-b border-slate-200/60 dark:border-slate-800/60">
-              <span className="h-2 w-2 rounded-full bg-pink-500" />
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">
+            <div className="flex items-center gap-3 pb-2 border-b border-slate-200/60">
+              <span className="h-2 w-2 rounded-full bg-pink-500"></span>
+              <h2 className="text-lg font-bold text-slate-900">
                 Tus datos de contacto
               </h2>
             </div>
@@ -166,7 +155,7 @@ export default function CheckoutPage() {
               <div className="space-y-2">
                 <Label
                   htmlFor="name"
-                  className="text-slate-600 dark:text-slate-200 font-medium ml-1"
+                  className="text-slate-600 font-medium ml-1"
                 >
                   Nombre completo <span className="text-pink-500">*</span>
                 </Label>
@@ -177,14 +166,14 @@ export default function CheckoutPage() {
                   required
                   value={formData.name}
                   onChange={handleInputChange}
-                  className="h-14 rounded-2xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-sm focus:border-pink-500 focus:ring-pink-500/20 px-5 text-base"
+                  className="h-14 rounded-2xl bg-white border-slate-200 shadow-sm focus:border-pink-500 focus:ring-pink-500/20 px-5 text-base"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
-                  className="text-slate-600 dark:text-slate-200 font-medium ml-1"
+                  className="text-slate-600 font-medium ml-1"
                 >
                   Correo electrónico <span className="text-pink-500">*</span>
                 </Label>
@@ -196,14 +185,14 @@ export default function CheckoutPage() {
                   required
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="h-14 rounded-2xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-sm focus:border-pink-500 focus:ring-pink-500/20 px-5 text-base"
+                  className="h-14 rounded-2xl bg-white border-slate-200 shadow-sm focus:border-pink-500 focus:ring-pink-500/20 px-5 text-base"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label
                   htmlFor="phone"
-                  className="text-slate-600 dark:text-slate-200 font-medium ml-1"
+                  className="text-slate-600 font-medium ml-1"
                 >
                   WhatsApp / Teléfono{' '}
                   <span className="text-xs text-muted-foreground font-normal">
@@ -217,14 +206,14 @@ export default function CheckoutPage() {
                   placeholder="55 1234 5678"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className="h-14 rounded-2xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-sm focus:border-pink-500 focus:ring-pink-500/20 px-5 text-base"
+                  className="h-14 rounded-2xl bg-white border-slate-200 shadow-sm focus:border-pink-500 focus:ring-pink-500/20 px-5 text-base"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label
                   htmlFor="notes"
-                  className="text-slate-600 dark:text-slate-200 font-medium ml-1"
+                  className="text-slate-600 font-medium ml-1"
                 >
                   Notas adicionales{' '}
                   <span className="text-xs text-muted-foreground font-normal">
@@ -235,7 +224,7 @@ export default function CheckoutPage() {
                   id="notes"
                   name="notes"
                   placeholder="¿Tienes alguna alergia o requerimiento especial?"
-                  className="min-h-[100px] rounded-2xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-sm focus:border-pink-500 focus:ring-pink-500/20 p-5 resize-none text-base"
+                  className="min-h-[100px] rounded-2xl bg-white border-slate-200 shadow-sm focus:border-pink-500 focus:ring-pink-500/20 p-5 resize-none text-base"
                   value={formData.notes}
                   onChange={handleInputChange}
                 />
@@ -243,57 +232,49 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Payment summary */}
-          <div className="rounded-4xl bg-slate-900 text-white p-6 shadow-xl space-y-4">
+          {/* Payment Summary */}
+          <div className="rounded-[2rem] bg-slate-900 text-white p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-4 border-b border-white/10">
               <span className="font-medium text-white/70">
                 Total del servicio
               </span>
-              <span className="font-bold text-xl">
-                ${bookingSummary.service.price}
-              </span>
+              <span className="font-bold text-xl">${summary.total}</span>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-pink-300">
                   <Lock className="h-4 w-4" />
-                  <span className="font-bold">
-                    {bookingSummary.mode === 'full'
-                      ? 'A pagar ahora (Total)'
-                      : 'A pagar ahora (Depósito)'}
-                  </span>
+                  <span className="font-bold">A pagar ahora (Depósito)</span>
                 </div>
                 <span className="font-bold text-2xl text-pink-300">
-                  ${payToday}
+                  ${summary.deposit}
                 </span>
               </div>
 
-              {bookingSummary.mode !== 'full' && (
-                <p className="text-xs text-white/50 leading-relaxed pl-6">
-                  El depósito asegura tu cita y se descuenta del total. No es
-                  reembolsable.
-                </p>
-              )}
+              <p className="text-xs text-white/50 leading-relaxed pl-6">
+                El depósito asegura tu cita y se descuenta del total. No es
+                reembolsable.
+              </p>
             </div>
 
             <div className="pt-2 flex items-center justify-between text-sm font-medium">
               <span className="text-white/70">Restante a pagar en studio</span>
-              <span>${remaining}</span>
+              <span>${summary.remaining}</span>
             </div>
           </div>
         </div>
       </main>
 
-      {/* Bottom bar */}
-      <div className="sticky bottom-0 inset-x-0 bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 p-4 pb-6 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-20">
+      {/* Fixed Bottom Bar */}
+      <div className="sticky bottom-0 inset-x-0 bg-white/80 backdrop-blur-xl border-t border-slate-100 p-4 pb-6 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] z-20">
         <div className="container mx-auto max-w-lg flex items-center justify-between gap-6">
           <div className="flex flex-col min-w-0">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
               Total a pagar hoy
             </span>
-            <div className="text-xl font-bold text-slate-900 dark:text-slate-50">
-              ${payToday}
+            <div className="text-xl font-bold text-slate-900">
+              ${summary.deposit}
             </div>
           </div>
 
@@ -304,7 +285,7 @@ export default function CheckoutPage() {
               'shrink-0 inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full font-bold text-sm transition-all shadow-xl',
               !isFormValid
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
-                : 'bg-linear-to-r from-pink-600 to-rose-500 text-white hover:brightness-110 hover:shadow-2xl hover:scale-105 active:scale-95'
+                : 'bg-gradient-to-r from-pink-600 to-rose-500 text-white hover:brightness-110 hover:shadow-2xl hover:scale-105 active:scale-95'
             )}
           >
             Confirmar Reserva

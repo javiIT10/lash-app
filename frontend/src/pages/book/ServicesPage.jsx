@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useBooking } from '../../contexts/BookingContext';
 import { Sparkles } from 'lucide-react';
 
 import ServicesData from '../../data/ServicesData';
@@ -15,6 +16,7 @@ import {
 
 function ServicesContent() {
   const navigate = useNavigate();
+  const { actions } = useBooking();
   const [searchParams] = useSearchParams();
 
   const initialCategory = searchParams.get('category'); // "pestanas" | "unas" | null
@@ -105,12 +107,14 @@ function ServicesContent() {
             <ServiceCard
               key={service.id}
               {...service}
-              onClick={() =>
-                navigate(`/book/date-time?serviceId=${service.id}`)
-              }
-              onDeposit={() =>
-                navigate(`/book/date-time?serviceId=${service.id}&mode=deposit`)
-              }
+              onClick={() => {
+                actions.setService(service);
+                navigate('/book/date-time');
+              }}
+              onDeposit={() => {
+                actions.setService(service);
+                navigate('/book/date-time');
+              }}
             />
           ))}
         </div>

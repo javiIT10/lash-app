@@ -1,4 +1,4 @@
-import { Navigate, Link, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import {
@@ -9,50 +9,75 @@ import {
   CalendarPlus,
   QrCode,
 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useBooking } from '../../contexts/BookingContext';
 
-import servicesData from '../../data/servicesData';
-
-function formatDateLong(isoDate) {
-  // isoDate: YYYY-MM-DD
-  if (!isoDate) return '';
-  const [y, m, d] = isoDate.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  return dt.toLocaleDateString('es-MX', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-  });
+// Helper: "2025-12-24" -> "Lunes 24"
+function formatLongDate(dateStr) {
+  if (!dateStr) return '';
+  const daysLong = [
+    'Domingo',
+    'Lunes',
+    'Martes',
+    'Miércoles',
+    'Jueves',
+    'Viernes',
+    'Sábado',
+  ];
+  const d = new Date(`${dateStr}T00:00:00`);
+  return `${daysLong[d.getDay()]} ${d.getDate()}`;
 }
 
 export default function SuccessPage() {
-  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const { booking, actions } = useBooking();
+  const leavingRef = useRef(false);
 
-  const serviceId = Number(params.get('serviceId'));
-  const date = params.get('date'); // YYYY-MM-DD
-  const time = params.get('time'); // HH:MM
-  const mode = params.get('mode') || 'deposit'; // deposit | full
+  // Si entran directo sin completar flujo, regresamos a services
+  useEffect(() => {
+    if (leavingRef.current) return;
+    if (!booking.service || !booking.date || !booking.time) {
+      navigate('/book/services', { replace: true });
+    }
+  }, [booking.service, booking.date, booking.time, navigate]);
 
-  const service = servicesData.find((s) => s.id === serviceId);
+  const summary = useMemo(() => {
+    const service = booking.service;
+    if (!service) return null;
 
-  // Si entran directo sin params, manda al inicio del flow
-  if (!serviceId || !service || !date || !time) {
-    return <Navigate to="/book/services" replace />;
-  }
+    const total = service.price ?? 0;
+    const deposit = service.deposit ?? 0;
+    const remaining = Math.max(0, total - deposit);
 
-  const paidToday = mode === 'full' ? service.price : service.deposit;
-  const remaining = mode === 'full' ? 0 : service.price - service.deposit;
+    return {
+      service,
+      date: formatLongDate(booking.date),
+      time: booking.time,
+      remaining,
+      deposit,
+    };
+  }, [booking.service, booking.date, booking.time]);
 
-  const dateDisplay = formatDateLong(date);
+  const handleBackHome = () => {
+    leavingRef.current = true;
+    actions.reset();
+    navigate('/', { replace: true });
+  };
+
+  const handleAddToCalendar = () => {
+    alert('Agregar a mi calendario', 'Próximamente disponible');
+  };
+
+  if (!summary) return null;
 
   return (
     <div className="min-h-dvh flex flex-col bg-slate-50 dark:bg-slate-950 items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-10 py-8">
-        {/* Hero */}
+        {/* Hero Section */}
         <div className="text-center space-y-5">
           <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 mb-3 animate-in zoom-in duration-500 shadow-lg">
             <CheckCircle2 className="w-12 h-12" />
           </div>
-
           <div className="space-y-3">
             <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
               ¡Tu cita está confirmada!
@@ -64,7 +89,7 @@ export default function SuccessPage() {
         </div>
 
         <Card className="overflow-hidden border-0 shadow-[0_20px_60px_rgb(0,0,0,0.15)] bg-white dark:bg-slate-900 rounded-[2.5rem] animate-in fade-in slide-in-from-bottom-8 duration-700 relative p-0 gap-0">
-          {/* Ticket notches */}
+          {/* Notches for ticket effect */}
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-50 dark:bg-slate-950 rounded-full -translate-x-1/2 shadow-inner" />
           <div className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-50 dark:bg-slate-950 rounded-full translate-x-1/2 shadow-inner" />
 
@@ -74,21 +99,22 @@ export default function SuccessPage() {
             </p>
             <div className="text-2xl font-extrabold flex items-center justify-center gap-3 text-white">
               <Calendar className="w-6 h-6" />
-              {dateDisplay} · {time}
+              {summary.date} · {summary.time}
             </div>
           </div>
 
           <CardContent className="p-0">
             <div className="flex flex-col md:flex-row">
-              {/* QR */}
+              {/* QR Code Section */}
               <div className="flex items-center justify-center bg-slate-50 dark:bg-slate-800 p-8 border-b md:border-b-0 md:border-r border-dashed border-slate-300 dark:border-slate-700 relative">
                 <div
-                  className="absolute inset-y-0 right-0 w-px md:block hidden"
+                  className="absolute inset-y-0 right-0 w-px bg-linear-to-b from-transparent via-slate-300 to-transparent md:block hidden"
                   style={{
                     backgroundImage:
                       'repeating-linear-gradient(0deg, transparent, transparent 4px, rgb(203 213 225) 4px, rgb(203 213 225) 8px)',
                   }}
                 />
+
                 <div className="bg-white p-4 rounded-2xl shadow-md">
                   <QrCode
                     className="w-32 h-32 text-slate-900"
@@ -97,23 +123,23 @@ export default function SuccessPage() {
                 </div>
               </div>
 
-              {/* Details */}
+              {/* Details Section */}
               <div className="flex-1 p-8 space-y-6">
                 <div className="space-y-3">
                   <Badge
                     variant="secondary"
                     className="bg-pink-100 text-pink-700 border-0 dark:bg-pink-900/30 dark:text-pink-300 rounded-full px-4 py-1.5 font-bold text-sm"
                   >
-                    {service.category}
+                    {summary.service.category}
                   </Badge>
 
                   <h3 className="font-extrabold text-2xl leading-tight">
-                    {service.name}
+                    {summary.service.name}
                   </h3>
 
                   <div className="flex items-center text-muted-foreground text-base font-semibold">
                     <Clock className="h-5 w-5 mr-2" />
-                    {service.duration}
+                    {summary.service.duration}
                   </div>
                 </div>
 
@@ -122,16 +148,15 @@ export default function SuccessPage() {
                 <div className="space-y-4 text-base">
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground font-medium">
-                      Pagado hoy
+                      Depósito pagado
                     </span>
                     <span className="text-green-600 font-bold flex items-center gap-2 text-lg">
-                      <CheckCircle2 className="w-5 h-5" /> ${paidToday}
+                      <CheckCircle2 className="w-5 h-5" /> ${summary.deposit}
                     </span>
                   </div>
-
                   <div className="flex justify-between items-center font-semibold">
                     <span>Restante en studio</span>
-                    <span className="text-xl">${remaining}</span>
+                    <span className="text-xl">${summary.remaining}</span>
                   </div>
                 </div>
 
@@ -150,12 +175,21 @@ export default function SuccessPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Opcional: mostrar datos del cliente si quieres */}
+                {booking.customer?.name && (
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-semibold text-foreground">
+                      Reserva a nombre de:
+                    </span>{' '}
+                    {booking.customer.name}
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Actions */}
         <div className="text-center space-y-8">
           <div className="text-sm text-muted-foreground space-y-2 max-w-md mx-auto leading-relaxed">
             <p className="font-medium">
@@ -165,24 +199,36 @@ export default function SuccessPage() {
           </div>
 
           <div className="flex flex-col gap-4">
-            <Link
-              to="/"
+            {/* Usamos button para reset + navigate */}
+            <button
+              onClick={handleBackHome}
               className="inline-flex w-full items-center justify-center gap-2 px-8 py-4 rounded-full font-bold text-lg bg-slate-900 text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 active:scale-95"
             >
               Volver al inicio
-            </Link>
+            </button>
+
+            {/* Si prefieres Link sin reset, usa esto:
+                <Link to="/" className="...">Volver al inicio</Link>
+             */}
 
             <button
-              type="button"
+              onClick={handleAddToCalendar}
               className="inline-flex w-full items-center justify-center gap-2 px-8 py-4 rounded-full font-bold text-base bg-white dark:bg-slate-800 text-foreground border-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:scale-105 transition-all duration-300 shadow-md"
-              onClick={() => {
-                // Placeholder: luego hacemos ICS / Google Calendar
-                console.log('Agregar a calendario', { serviceId, date, time });
-              }}
             >
               <CalendarPlus className="w-5 h-5" />
               Agregar a mi calendario
             </button>
+          </div>
+
+          {/* Link secundario opcional */}
+          <div className="text-sm text-muted-foreground">
+            ¿Quieres reservar otra cosa?{' '}
+            <Link
+              to="/book/services"
+              className="font-semibold text-pink-600 hover:underline"
+            >
+              Ver servicios
+            </Link>
           </div>
         </div>
       </div>
