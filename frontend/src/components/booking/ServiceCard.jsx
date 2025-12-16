@@ -24,7 +24,7 @@ export default function ServiceCard({
       transition={{ duration: 0.4, ease: 'easeOut' }}
       whileHover={{ scale: 1.03, transition: { duration: 0.3 } }}
     >
-      <Card className="group overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.18)] transition-all duration-500 bg-card rounded-3xl">
+      <Card className="group overflow-hidden border-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.18)] transition-all duration-500 bg-card rounded-3xl py-0">
         {/* Image */}
         <div className="relative h-64 w-full overflow-hidden bg-slate-100">
           <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent z-10" />

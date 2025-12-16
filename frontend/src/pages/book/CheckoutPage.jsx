@@ -79,8 +79,12 @@ export default function CheckoutPage() {
   const handleConfirm = () => {
     if (!isFormValid) return;
 
-    // Más adelante aquí mandas al backend o a MercadoPago.
-    navigate('/book/success');
+    // Más adelante al backend o a MercadoPago.
+    navigate(
+      `/book/success?serviceId=${serviceId}&date=${date}&time=${encodeURIComponent(
+        time
+      )}&mode=${mode}`
+    );
   };
 
   // Para volver a DateTime conservando el servicio
