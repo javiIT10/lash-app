@@ -51,7 +51,7 @@ function DateTimeSelectionContent() {
   const [searchParams] = useSearchParams();
 
   const serviceId = Number(searchParams.get('serviceId'));
-  const mode = searchParams.get('mode') || 'full'; // full | deposit
+  const mode = searchParams.get('mode') || 'deposit'; // full | deposit
 
   const selectedService = useMemo(
     () => servicesData.find((s) => s.id === serviceId),
@@ -99,7 +99,7 @@ function DateTimeSelectionContent() {
           />
 
           {/* Card del servicio seleccionado */}
-          <div className="relative overflow-hidden rounded-[2rem] bg-white dark:bg-slate-900 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 dark:border-slate-800 p-2">
+          <div className="relative overflow-hidden rounded-4xl bg-white dark:bg-slate-900 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 dark:border-slate-800 p-2">
             <div className="flex gap-4 p-4">
               <div className="h-24 w-24 rounded-2xl shrink-0 overflow-hidden bg-slate-100">
                 <img
@@ -148,7 +148,7 @@ function DateTimeSelectionContent() {
                       key={day.fullDate}
                       onClick={() => handleDateSelect(day.fullDate)}
                       className={cn(
-                        'flex flex-col items-center justify-center min-w-[4.5rem] h-[5.5rem] rounded-[1.5rem] border-2 transition-all duration-300 snap-start shrink-0',
+                        'flex flex-col items-center justify-center min-w-18 h-22 rounded-3xl border-2 transition-all duration-300 snap-start shrink-0',
                         isSelected
                           ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-105'
                           : 'bg-white dark:bg-slate-900 border-transparent text-slate-500 hover:border-slate-200 dark:hover:border-slate-700 hover:bg-white shadow-sm'
@@ -185,7 +185,7 @@ function DateTimeSelectionContent() {
             </h2>
 
             {!selectedDate ? (
-              <div className="py-12 text-center rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <div className="py-12 text-center rounded-4xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
                 <p className="text-slate-400 font-medium">
                   Selecciona un día arriba para ver horarios
                 </p>
